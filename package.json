@@ -1,0 +1,43 @@
+{
+  "name": "terminal-designer",
+  "version": "1.0.0",
+  "description": "Visual designer for fish + fastfetch terminal setups on Linux",
+  "main": "src/main.js",
+  "author": "il4pt",
+  "license": "MIT",
+  "keywords": [
+    "fish",
+    "fastfetch",
+    "terminal",
+    "rice",
+    "linux",
+    "konsole",
+    "kitty",
+    "electron"
+  ],
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder --linux AppImage pacman deb"
+  },
+  "build": {
+    "appId": "io.github.il4pt.terminal-designer",
+    "productName": "Terminal Designer",
+    "files": [
+      "src/**/*",
+      "assets/icon.png"
+    ],
+    "linux": {
+      "icon": "assets/icon.png",
+      "category": "Utility",
+      "synopsis": "fish + fastfetch visual designer",
+      "executableName": "terminal-designer",
+      "syncDesktopName": true
+    },
+    "artifactName": "terminal-designer-${version}-${arch}.${ext}"
+  },
+  "devDependencies": {
+    "electron": "^44.7.0",
+    "electron-builder": "^26.15.3"
+  },
+  "desktopName": "terminal-designer.desktop"
+}

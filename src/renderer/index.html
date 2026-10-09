@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Terminal Designer</title>
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:">
+<style>
+:root{
+  --bg:#1c1c1e; --panel:#242426; --panel2:#2c2c2e; --line:#3a3a3d; --text:#ececee; --muted:#9a9aa0;
+  --accent:#d4d4d8; --accent2:#f4f4f5; --on-accent:#18181b; --sel:#48484c; --danger:#ff6b6b; --ok:#6fcf8a; --radius:10px;
+  --mono:'JetBrains Mono','JetBrainsMono Nerd Font','Fira Code','Hack','DejaVu Sans Mono',monospace;
+  --sans:Inter,'Noto Sans','Segoe UI',system-ui,sans-serif;
+  color-scheme:dark;
+}
+:root[data-theme="light"]{ --bg:#e7e7ea; --panel:#f4f4f5; --panel2:#ebebee; --line:#d4d4d8; --text:#1f1f22; --muted:#6b6b72;
+  --accent:#3f3f46; --accent2:#27272a; --on-accent:#fafafa; --sel:#d4d4d8; color-scheme:light; }
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:14px}
+button,input,select,textarea{font:inherit;color:inherit}
+.app{display:grid;grid-template-columns:400px 1fr;height:100vh}
+/* ---------- sidebar ---------- */
+.side{background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0}
+.brand{display:flex;align-items:center;gap:10px;padding:16px 18px;border-bottom:1px solid var(--line)}
+.brand .dot{width:28px;height:28px;border-radius:8px;background:linear-gradient(135deg,#71717a,#3f3f46);display:grid;place-items:center;font-family:var(--mono);font-weight:700;font-size:13px;color:#fff}
+.brand h1{font-size:15px;margin:0;font-weight:600}
+.brand small{color:var(--muted);display:block;font-size:12px}
+.brand .sp{flex:1}
+.brand .seg{padding:2px}
+.brand .seg button{padding:4px 8px;font-size:11.5px;font-weight:600}
+.tabs{display:flex;gap:4px;padding:10px 12px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{padding:7px 11px;border-radius:8px;border:0;background:transparent;color:var(--muted);cursor:pointer;font-weight:500;font-size:13px}
+.tab.on{background:var(--sel);color:var(--text)}
+.scroll{overflow:auto;padding:14px 16px 24px;flex:1}
+.sec{display:none}.sec.on{display:block}
+.card{background:var(--panel2);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.card h3 span{text-transform:none;letter-spacing:0}
+.row{display:flex;align-items:center;gap:10px;margin:8px 0}
+.row label{flex:1;color:var(--text);font-size:13px}
+.row .val{color:var(--muted);font-family:var(--mono);font-size:12px;min-width:38px;text-align:right}
+input[type=range]{flex:1.3;accent-color:#a1a1aa}
+input[type=color]{width:34px;height:28px;border:1px solid var(--line);border-radius:6px;padding:0;background:none;cursor:pointer}
+input[type=checkbox]{accent-color:#a1a1aa}
+input[type=text],select,textarea{background:var(--panel);border:1px solid var(--line);border-radius:7px;padding:7px 9px;width:100%}
+textarea{font-family:var(--mono);font-size:11.5px;line-height:1.25;min-height:180px;resize:vertical;white-space:pre;overflow:auto}
+.seg{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;padding:6px 4px;border-radius:6px;cursor:pointer;color:var(--muted);font-size:12.5px}
+.seg button.on{background:var(--sel);color:var(--text)}
+.btn{border:1px solid var(--line);background:var(--panel);padding:8px 12px;border-radius:8px;cursor:pointer;font-weight:500}
+.btn:hover{border-color:var(--muted)}
+.btn:disabled{opacity:.6;cursor:wait}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--on-accent)}
+.btn.primary:hover{background:var(--accent2)}
+.btn.sm{padding:5px 9px;font-size:12px}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.hint{color:var(--muted);font-size:12px;line-height:1.45;margin:6px 0 0}
+.drop{border:1.5px dashed var(--line);border-radius:10px;padding:18px;text-align:center;color:var(--muted);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--muted);color:var(--text)}
+.drop img{max-width:120px;max-height:120px;display:block;margin:0 auto 8px;border-radius:6px}
+/* module list */
+.mods{display:flex;flex-direction:column;gap:6px}
+.mod{display:grid;grid-template-columns:18px 22px 1fr 30px 26px;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:5px 6px}
+.mod.dragging{opacity:.4}
+.mod.off{opacity:.45}
+.mod .grip{cursor:grab;color:var(--muted);text-align:center;user-select:none}
+.mod input[type=text]{padding:4px 6px;font-size:12.5px}
+.mod input[type=color]{width:28px;height:24px}
+.mod .x{border:0;background:transparent;color:var(--muted);cursor:pointer;font-size:16px}
+.mod .x:hover{color:var(--danger)}
+.mod .tag{grid-column:3/4;font-size:10.5px;color:var(--muted);font-family:var(--mono);margin-top:-2px}
+/* ---------- preview ---------- */
+.stage{position:relative;overflow:auto;display:flex;align-items:center;justify-content:center;padding:40px;min-width:0}
+.wall{position:absolute;inset:0;background-size:cover;background-position:center;z-index:0}
+.term{position:relative;z-index:1;width:min(1000px,100%);border-radius:12px;overflow:hidden;box-shadow:0 30px 80px rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.08)}
+.titlebar{display:flex;align-items:center;gap:8px;height:34px;padding:0 12px;font-family:var(--sans);font-size:12.5px}
+.titlebar .lights{display:flex;gap:7px}
+.titlebar .lights i{width:12px;height:12px;border-radius:50%;display:block}
+.titlebar .ttl{flex:1;text-align:center;opacity:.75;margin-right:50px}
+.screen{font-family:var(--mono);white-space:pre;overflow:hidden}
+.ff{display:flex;align-items:flex-start}
+.logo{flex:none;line-height:1.15}
+.logo img{display:block;object-fit:contain}
+.info{line-height:1.45;min-width:0}
+.info .ln{overflow:hidden;text-overflow:ellipsis}
+.blocks span{display:inline-block;width:2.2ch;height:1.15em;vertical-align:middle}
+.prompt-line{margin-top:.6em}
+.cursor{display:inline-block;width:.6em;height:1.1em;vertical-align:text-bottom;animation:blink 1.1s steps(1) infinite}
+@keyframes blink{50%{opacity:0}}
+/* modal */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.55);display:none;align-items:center;justify-content:center;z-index:10;padding:16px}
+.modal.on{display:flex}
+.modal .box{background:var(--panel);border:1px solid var(--line);border-radius:14px;width:min(860px,100%);max-height:90vh;display:flex;flex-direction:column}
+.modal header{display:flex;align-items:center;gap:8px;padding:14px 16px;border-bottom:1px solid var(--line)}
+.modal header h2{margin:0;font-size:15px;flex:1}
+.modal .body{overflow:auto;padding:14px 16px}
+.modal pre{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:12px;font-family:var(--mono);font-size:12px;overflow:auto;max-height:46vh;margin:8px 0 0}
+.result{font-family:var(--mono);font-size:12px;margin-top:10px;line-height:1.6;white-space:pre-wrap}
+.result.ok{color:var(--ok)} .result.err{color:var(--danger)}
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--accent);color:var(--on-accent);padding:10px 16px;border-radius:9px;transition:.25s;z-index:20;font-weight:500}
+.toast.on{transform:translateX(-50%) translateY(0)}
+@media (max-width:860px){
+  .app{grid-template-columns:1fr;height:auto}
+  .side{border-right:0;border-bottom:1px solid var(--line)}
+  .stage{padding:16px;min-height:70vh}
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side">
+    <div class="brand">
+      <div class="dot">&gt;_</div>
+      <div><h1>Terminal Designer</h1><small data-i18n="subtitle"></small></div>
+      <div class="sp"></div>
+      <div class="seg" id="langSeg"><button data-v="tr">TR</button><button data-v="en">EN</button></div>
+      <button class="btn sm" id="themeBtn" data-i18n-title="uiTheme">◐</button>
+    </div>
+    <nav class="tabs">
+      <button class="tab on" data-tab="logo" data-i18n="tabLogo"></button>
+      <button class="tab" data-tab="info" data-i18n="tabInfo"></button>
+      <button class="tab" data-tab="colors" data-i18n="tabColors"></button>
+      <button class="tab" data-tab="window" data-i18n="tabWindow"></button>
+      <button class="tab" data-tab="prompt" data-i18n="tabPrompt"></button>
+    </nav>
+    <div class="scroll">
+      <!-- LOGO -->
+      <section class="sec on" data-sec="logo">
+        <div class="card">
+          <h3 data-i18n="logoType"></h3>
+          <div class="seg" id="logoType">
+            <button data-v="ascii">ASCII</button>
+            <button data-v="image" data-i18n="logoImage"></button>
+            <button data-v="builtin" data-i18n="logoBuiltin"></button>
+            <button data-v="none" data-i18n="logoNone"></button>
+          </div>
+        </div>
+        <div class="card" data-logo="ascii">
+          <h3 data-i18n="asciiArt"></h3>
+          <textarea id="asciiText" spellcheck="false"></textarea>
+          <div class="row"><label data-i18n="logoColor"></label><input type="color" id="logoColor"></div>
+          <div class="btns"><button class="btn sm" id="asciiLoad" data-i18n="loadTxt"></button></div>
+          <input type="file" id="asciiFile" accept=".txt,text/plain" hidden>
+        </div>
+        <div class="card" data-logo="image">
+          <h3 data-i18n="logoImage"></h3>
+          <div class="drop" id="imgDrop"><div id="imgPrev"></div><span data-i18n="dropImg"></span></div>
+          <input type="file" id="imgFile" accept="image/*" hidden>
+          <div class="row"><label data-i18n="widthChars"></label><input type="range" id="imgW" min="10" max="60"><span class="val" id="imgWv"></span></div>
+          <div class="row"><label data-i18n="radius"></label><input type="range" id="imgR" min="0" max="50"><span class="val" id="imgRv"></span></div>
+          <p class="hint" data-i18n-html="imgHint"></p>
+        </div>
+        <div class="card" data-logo="builtin">
+          <h3 data-i18n="builtinTitle"></h3>
+          <select id="builtinLogo"></select>
+          <p class="hint" data-i18n="builtinHint"></p>
+        </div>
+        <div class="card" data-logo-any>
+          <h3 data-i18n="logoPad"></h3>
+          <div class="row"><label data-i18n="top"></label><input type="range" id="padTop" min="0" max="6"><span class="val" id="padTopv"></span></div>
+          <div class="row"><label data-i18n="right"></label><input type="range" id="padRight" min="0" max="10"><span class="val" id="padRightv"></span></div>
+        </div>
+      </section>
+
+      <!-- INFO -->
+      <section class="sec" data-sec="info">
+        <div class="card">
+          <h3 data-i18n="separator"></h3>
+          <div class="row"><input type="text" id="separator"></div>
+          <div class="row"><label data-i18n="sepChar"></label><input type="text" id="sepChar" style="width:60px;flex:none"></div>
+        </div>
+        <div class="card">
+          <h3><span data-i18n="lines"></span></h3>
+          <div class="mods" id="mods"></div>
+          <div class="row" style="margin-top:12px">
+            <select id="addSel"></select>
+            <button class="btn sm primary" id="addBtn" data-i18n="add"></button>
+          </div>
+          <p class="hint" data-i18n="linesHint"></p>
+        </div>
+      </section>
+
+      <!-- COLORS -->
+      <section class="sec" data-sec="colors">
+        <div class="card">
+          <h3 data-i18n="presets"></h3>
+          <div class="btns" id="presets"></div>
+        </div>
+        <div class="card">
+          <h3>Terminal</h3>
+          <div class="row"><label data-i18n="background"></label><input type="color" id="bg"></div>
+          <div class="row"><label data-i18n="text"></label><input type="color" id="fg"></div>
+          <div class="row"><label data-i18n="cursor"></label><input type="color" id="cursorColor"></div>
+        </div>
+        <div class="card">
+          <h3>fastfetch</h3>
+          <div class="row"><label data-i18n="keyColor"></label><input type="color" id="keyColor"><button class="btn sm" id="applyKeyAll" data-i18n="applyAll"></button></div>
+          <div class="row"><label data-i18n="userName"></label><input type="color" id="userColor"></div>
+          <div class="row"><label data-i18n="atSign"></label><input type="color" id="atColor"></div>
+          <div class="row"><label data-i18n="hostName"></label><input type="color" id="hostColor"></div>
+          <div class="row"><label data-i18n="separator"></label><input type="color" id="sepColor"></div>
+        </div>
+        <div class="card">
+          <h3 data-i18n="palette"></h3>
+          <div id="palette" style="display:grid;grid-template-columns:repeat(8,1fr);gap:6px"></div>
+        </div>
+      </section>
+
+      <!-- WINDOW -->
+      <section class="sec" data-sec="window">
+        <div class="card">
+          <h3 data-i18n="transparency"></h3>
+          <div class="row"><label data-i18n="opacity"></label><input type="range" id="opacity" min="20" max="100"><span class="val" id="opacityv"></span></div>
+          <div class="row"><label data-i18n="blur"></label><input type="checkbox" id="blur"></div>
+          <p class="hint" data-i18n="opacityHint"></p>
+        </div>
+        <div class="card">
+          <h3 data-i18n="fontSpacing"></h3>
+          <div class="row"><label data-i18n="fontSize"></label><input type="range" id="fontSize" min="9" max="20"><span class="val" id="fontSizev"></span></div>
+          <div class="row"><label data-i18n="padding"></label><input type="range" id="padding" min="0" max="40"><span class="val" id="paddingv"></span></div>
+        </div>
+        <div class="card">
+          <h3 data-i18n="wallpaper"></h3>
+          <div class="seg" id="wallType">
+            <button data-v="gradient" data-i18n="gradient"></button>
+            <button data-v="image" data-i18n="logoImage"></button>
+            <button data-v="plain" data-i18n="plain"></button>
+          </div>
+          <div class="btns" style="margin-top:10px"><button class="btn sm" id="wallLoad" data-i18n="pickWall"></button></div>
+          <input type="file" id="wallFile" accept="image/*" hidden>
+          <p class="hint" data-i18n="wallHint"></p>
+        </div>
+      </section>
+
+      <!-- PROMPT -->
+      <section class="sec" data-sec="prompt">
+        <div class="card">
+          <h3>fish prompt</h3>
+          <div class="row"><label data-i18n="pShowUser"></label><input type="checkbox" id="pShowUser"></div>
+          <div class="row"><label data-i18n="pUserColor"></label><input type="color" id="pUserColor"></div>
+          <div class="row"><label data-i18n="pDirColor"></label><input type="color" id="pDirColor"></div>
+          <div class="row"><label data-i18n="pSymbol"></label><input type="text" id="pSymbol" style="width:80px;flex:none"><input type="color" id="pSymColor"></div>
+          <div class="row"><label data-i18n="pGreet"></label><input type="checkbox" id="pGreet"></div>
+        </div>
+      </section>
+    </div>
+    <div style="padding:12px 16px;border-top:1px solid var(--line)" class="btns">
+      <button class="btn primary" id="exportBtn" style="flex:1" data-i18n="exportApply"></button>
+      <button class="btn" id="saveJson" data-i18n="save" data-i18n-title="saveTitle"></button>
+      <button class="btn" id="loadJson" data-i18n="open" data-i18n-title="openTitle"></button>
+      <input type="file" id="jsonFile" accept=".json" hidden>
+    </div>
+  </aside>
+
+  <main class="stage">
+    <div class="wall" id="wall"></div>
+    <div class="term" id="term">
+      <div class="titlebar" id="titlebar">
+        <div class="lights"><i style="background:#ff5f57"></i><i style="background:#febc2e"></i><i style="background:#28c840"></i></div>
+        <div class="ttl">fish</div>
+      </div>
+      <div class="screen" id="screen"></div>
+    </div>
+  </main>
+</div>
+
+<div class="modal" id="modal">
+  <div class="box">
+    <header><h2 data-i18n="exportTitle"></h2><button class="btn sm" id="closeModal" data-i18n="close"></button></header>
+    <div class="body">
+      <div class="card" id="applyCard">
+        <h3 data-i18n="applyNowTitle"></h3>
+        <p class="hint" style="margin-top:0" data-i18n="applyNowHint"></p>
+        <div class="row"><label data-i18n="konsoleProfile"></label><input type="checkbox" id="konsoleProfile" checked></div>
+        <div class="btns" style="margin-top:8px"><button class="btn primary" id="applyNow" data-i18n="applyNow"></button></div>
+        <div class="result" id="applyResult"></div>
+      </div>
+      <div class="card" id="installCard">
+        <h3 data-i18n="installTitle"></h3>
+        <p class="hint" style="margin-top:0" data-i18n-html="installHint"></p>
+        <div class="btns" style="margin-top:8px"><button class="btn" id="dlInstall" data-i18n="dlInstall"></button></div>
+        <pre>bash ~/Downloads/install.sh</pre>
+      </div>
+      <div class="card">
+        <h3 data-i18n="filesTitle"></h3>
+        <div class="seg" id="exportTabs">
+          <button data-v="fastfetch">config.jsonc</button>
+          <button data-v="prompt">fish_prompt</button>
+          <button data-v="kitty">kitty</button>
+          <button data-v="alacritty">alacritty</button>
+          <button data-v="konsole">konsole</button>
+        </div>
+        <pre id="exportOut"></pre>
+        <div class="btns" style="margin-top:8px"><button class="btn sm" id="copyOut" data-i18n="copy"></button></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ===================== Diller ===================== */
+const I18N = {
+  tr: {
+    subtitle:'fish + fastfetch görsel düzenleyici', uiTheme:'Arayüz teması',
+    tabLogo:'Logo', tabInfo:'Bilgiler', tabColors:'Renkler', tabWindow:'Pencere', tabPrompt:'Prompt',
+    logoType:'Logo türü', logoImage:'Görsel', logoBuiltin:'Hazır', logoNone:'Yok',
+    asciiArt:'ASCII sanatı', logoColor:'Logo rengi', loadTxt:'.txt dosyasından yükle',
+    dropImg:'PNG / JPG sürükle ya da tıkla', widthChars:'Genişlik (karakter)', radius:'Köşe yuvarlama',
+    imgHint:'Görseller terminalde <b>kitty grafik protokolü</b> ile gösterilir (kitty, Konsole, WezTerm destekler). Köşe yuvarlama yalnız önizlemededir.',
+    builtinTitle:'Hazır dağıtım logosu', builtinHint:"fastfetch'in kendi logoları. Önizleme temsilidir.",
+    logoPad:'Logo boşluğu', top:'Üst', right:'Sağ',
+    separator:'Ayırıcı', sepChar:'Başlık altı çizgi karakteri', lines:'Satırlar — sürükleyip sırala', add:'Ekle',
+    linesHint:'“Özel metin” ile istediğin yazıyı ekleyebilirsin. Kutu işareti satırı gizler, renk kutusu o satırın anahtar rengidir.',
+    presets:'Hazır temalar', background:'Arka plan', text:'Yazı', cursor:'İmleç',
+    keyColor:'Anahtar rengi (hepsi)', applyAll:'Tüm satırlara uygula', userName:'Kullanıcı adı', atSign:'@ işareti', hostName:'Host adı',
+    palette:'ANSI paleti (renk blokları)', transparency:'Saydamlık', opacity:'Opaklık', blur:'Bulanıklık (blur)',
+    opacityHint:'Opaklık kitty, Alacritty ve Konsole ayarı olarak dışa aktarılır.',
+    fontSpacing:'Yazı & boşluk', fontSize:'Yazı boyutu', padding:'İç boşluk',
+    wallpaper:'Önizleme duvar kağıdı', gradient:'Gradyan', plain:'Düz', pickWall:'Duvar kağıdı seç', wallHint:'Sadece saydamlığı görebilmen için; dışa aktarılmaz.',
+    pShowUser:'Kullanıcı@host göster', pUserColor:'Kullanıcı rengi', pDirColor:'Dizin rengi', pSymbol:'Sembol', pGreet:'Açılışta fastfetch çalıştır',
+    exportApply:'Dışa aktar / Uygula', save:'Kaydet', open:'Aç', saveTitle:'Tasarımı .json kaydet', openTitle:'Tasarım .json aç',
+    exportTitle:'Dışa aktar', close:'Kapat',
+    applyNowTitle:'1 · Sisteme uygula', applyNowHint:'Dosyalar doğrudan yazılır, eskileri .bak olarak yedeklenir. Değişiklikleri görmek için yeni bir terminal aç.',
+    konsoleProfile:'Konsole profilinde renk şemasını da seç', applyNow:'Şimdi uygula', applying:'Uygulanıyor…',
+    applied:'Uygulandı! Yeni bir terminal aç.', applyFail:'Hata: ',
+    installTitle:'2 · Kurulum betiği', installHint:'Başka bir bilgisayara taşımak için: betiği indir ve orada çalıştır. Eski dosyalar <code>.bak</code> olarak yedeklenir.',
+    dlInstall:'install.sh indir', filesTitle:'3 · Dosyaları tek tek al', copy:'Kopyala', copied:'Kopyalandı', copyFail:'Kopyalanamadı',
+    noImage:'[görsel yok]', needImage:'Önce bir görsel yükle', downloaded:'install.sh indirildi', presetApplied:' uygulandı',
+    loaded:'Tasarım yüklendi', badFile:'Geçersiz dosya', customPh:'Metin yaz…', delete:'Sil',
+    m_title:'Başlık (kullanıcı@host)', m_separator:'Ayırıcı çizgi', m_custom:'Özel metin', m_break:'Boş satır', m_colors:'Renk blokları', m_datetime:'Tarih', m_weather:'Hava durumu',
+    sh_done:'Bitti! Yeni bir terminal aç.', sh_konsole:"Konsole için: Ayarlar → Profili Düzenle → Görünüm → 'Terminal Designer' renk şemasını seç.",
+  },
+  en: {
+    subtitle:'visual fish + fastfetch editor', uiTheme:'UI theme',
+    tabLogo:'Logo', tabInfo:'Info', tabColors:'Colors', tabWindow:'Window', tabPrompt:'Prompt',
+    logoType:'Logo type', logoImage:'Image', logoBuiltin:'Built-in', logoNone:'None',
+    asciiArt:'ASCII art', logoColor:'Logo color', loadTxt:'Load from .txt file',
+    dropImg:'Drop a PNG / JPG or click', widthChars:'Width (characters)', radius:'Corner radius',
+    imgHint:'Images are drawn with the <b>kitty graphics protocol</b> (supported by kitty, Konsole, WezTerm). Corner radius only affects the preview.',
+    builtinTitle:'Built-in distro logo', builtinHint:"fastfetch's own logos. The preview is approximate.",
+    logoPad:'Logo padding', top:'Top', right:'Right',
+    separator:'Separator', sepChar:'Underline character', lines:'Lines — drag to reorder', add:'Add',
+    linesHint:'Use “Custom text” to add any text you like. The checkbox hides a line, the color box sets its key color.',
+    presets:'Theme presets', background:'Background', text:'Text', cursor:'Cursor',
+    keyColor:'Key color (all)', applyAll:'Apply to all lines', userName:'User name', atSign:'@ sign', hostName:'Host name',
+    palette:'ANSI palette (color blocks)', transparency:'Transparency', opacity:'Opacity', blur:'Blur',
+    opacityHint:'Opacity is exported as a kitty, Alacritty and Konsole setting.',
+    fontSpacing:'Font & spacing', fontSize:'Font size', padding:'Padding',
+    wallpaper:'Preview wallpaper', gradient:'Gradient', plain:'Plain', pickWall:'Choose wallpaper', wallHint:'Only for previewing transparency; not exported.',
+    pShowUser:'Show user@host', pUserColor:'User color', pDirColor:'Directory color', pSymbol:'Symbol', pGreet:'Run fastfetch on startup',
+    exportApply:'Export / Apply', save:'Save', open:'Open', saveTitle:'Save design as .json', openTitle:'Open design .json',
+    exportTitle:'Export', close:'Close',
+    applyNowTitle:'1 · Apply to system', applyNowHint:'Files are written directly; old ones are backed up as .bak. Open a new terminal to see the changes.',
+    konsoleProfile:'Also select the color scheme in the Konsole profile', applyNow:'Apply now', applying:'Applying…',
+    applied:'Applied! Open a new terminal.', applyFail:'Error: ',
+    installTitle:'2 · Install script', installHint:'To use this design on another machine: download the script and run it there. Old files are backed up as <code>.bak</code>.',
+    dlInstall:'Download install.sh', filesTitle:'3 · Get individual files', copy:'Copy', copied:'Copied', copyFail:'Copy failed',
+    noImage:'[no image]', needImage:'Upload an image first', downloaded:'install.sh downloaded', presetApplied:' applied',
+    loaded:'Design loaded', badFile:'Invalid file', customPh:'Type text…', delete:'Delete',
+    m_title:'Title (user@host)', m_separator:'Separator line', m_custom:'Custom text', m_break:'Empty line', m_colors:'Color blocks', m_datetime:'Date', m_weather:'Weather',
+    sh_done:'Done! Open a new terminal.', sh_konsole:"For Konsole: Settings → Edit Profile → Appearance → choose the 'Terminal Designer' color scheme.",
+  }
+};
+const t = k => I18N[S.lang]?.[k] ?? I18N.en[k] ?? I18N.tr[k] ?? k;
+function applyLang(){
+  document.documentElement.lang = S.lang;
+  $$('[data-i18n]').forEach(el=>el.textContent = t(el.dataset.i18n));
+  $$('[data-i18n-html]').forEach(el=>el.innerHTML = t(el.dataset.i18nHtml));
+  $$('[data-i18n-title]').forEach(el=>el.title = t(el.dataset.i18nTitle));
+  $('#addSel').innerHTML = MODULE_CATALOG.map(m=>`<option value="${m}">${modLabel(m)}</option>`).join('');
+  renderMods();
+}
+
+/* ===================== Data ===================== */
+const DEFAULT_ASCII = "                        +++\n                    +++++++++\n          ++++++++*+*+++++++++\n         ++++++++++++++++++++++++\n       +++++++++++++++++++++++++++*\n     ++*++++++++++++++++++++++++++++++\n    +++++++++++++++++++++* +++++++* +++\n   ++++++++++++++++++++++++*++++++++++++\n  ++++++++++++++++++++++++++++++++++++++*\n +++++++++++++++++++++++++++*+++++++++*++\n+++++++++    ++++++++++++++++++++++++++++*\n+++*++++++++  +++++++++++++++++++++*++++++\n++++++++++++   *++++++++++++++++++++++++++\n++   + ++        ++   ++++++++++++++++++++\n++++ ++++++     *++ ++++++++++++++++++++++\n+++++++++++++++++++++++++++++++++++*++*+++\n +++++ ++++++++++++++++++++++++++++++++++\n  *+++*+ +++++++*+++++  +++++++++++++++++\n  ++++++++ +++++++++     +++++++++++++++\n   +++++  + ++++++++   + +++++++++++++*\n     ++++*++ +++++++  ++++++++++++++++\n       +++++++++++++++++++++++++++++\n         ++++++++++++++++++++++++\n             +++++++++++++++++";
+
+const SAMPLE = {
+  os:'CachyOS x86_64', host:'Aspire A315-58 (V1.29)', kernel:'Linux 7.2.9-1-cachyos',
+  uptime:'1 hour, 44 mins', packages:'1380 (pacman), 15 (flatpak)', shell:'fish 4.1.2',
+  display:'1920x1080 in 16", 60 Hz', de:'KDE Plasma 6.7.5', wm:'KWin (Wayland)', wmtheme:'ketsa',
+  theme:'Breeze (AcrilicDark) [Qt]', icons:'breeze [Qt], breeze [GTK2/3/4]', font:'Noto Sans (10pt)',
+  cursor:'Afterglow (24px)', terminal:'konsole 25.08', terminalfont:'JetBrains Mono (11pt)',
+  cpu:'11th Gen Intel(R) Core(TM) i5-1135G7 (8) @ 4.20 GHz', gpu:'Intel Iris Xe Graphics [Integrated]',
+  memory:'5.19 GiB / 7.53 GiB (69%)', swap:'2.40 GiB / 7.53 GiB (32%)', disk:'49.08 GiB / 236.47 GiB (21%) - btrfs',
+  battery:'100% [AC Connected]', localip:'192.168.1.42/24', locale:'en_US.UTF-8', datetime:'2026-10-09 14:32:10',
+  weather:'+18°C (London)'
+};
+const MODULE_CATALOG = ['title','separator','os','host','kernel','uptime','packages','shell','display','de','wm','wmtheme','theme','icons','font','cursor','terminal','terminalfont','cpu','gpu','memory','swap','disk','battery','localip','locale','datetime','weather','custom','break','colors'];
+const KEY_LABEL = {os:'OS',host:'Host',kernel:'Kernel',uptime:'Uptime',packages:'Packages',shell:'Shell',display:'Display',de:'DE',wm:'WM',wmtheme:'WM Theme',theme:'Theme',icons:'Icons',font:'Font',cursor:'Cursor',terminal:'Terminal',terminalfont:'Term Font',cpu:'CPU',gpu:'GPU',memory:'Memory',swap:'Swap',disk:'Disk (/)',battery:'Battery',localip:'Local IP',locale:'Locale',datetime:'Date',weather:'Weather',custom:''};
+const modLabel = m => (I18N.en['m_'+m] || I18N.tr['m_'+m]) ? t('m_'+m) : KEY_LABEL[m];
+const BUILTINS = ['cachyos','arch','endeavouros','manjaro','debian','ubuntu','fedora','opensuse','nixos','gentoo','linuxmint','pop','void','artix','garuda'];
+
+const PRESETS = {
+  'Default': {bg:'#0d1117',fg:'#d6deeb',keyColor:'#5b8cff',userColor:'#5b8cff',atColor:'#ffffff',hostColor:'#4fd1e8',sepColor:'#8b93a7',logoColor:'#5b8cff',
+    palette:['#1d2230','#ff5d6c','#7ee787','#f2cc60','#5b8cff','#c792ea','#4fd1e8','#d6deeb']},
+  'Catppuccin': {bg:'#1e1e2e',fg:'#cdd6f4',keyColor:'#cba6f7',userColor:'#89b4fa',atColor:'#cdd6f4',hostColor:'#f5c2e7',sepColor:'#6c7086',logoColor:'#cba6f7',
+    palette:['#45475a','#f38ba8','#a6e3a1','#f9e2af','#89b4fa','#f5c2e7','#94e2d5','#bac2de']},
+  'Gruvbox': {bg:'#282828',fg:'#ebdbb2',keyColor:'#fe8019',userColor:'#fabd2f',atColor:'#ebdbb2',hostColor:'#8ec07c',sepColor:'#928374',logoColor:'#fe8019',
+    palette:['#3c3836','#fb4934','#b8bb26','#fabd2f','#83a598','#d3869b','#8ec07c','#ebdbb2']},
+  'Nord': {bg:'#2e3440',fg:'#d8dee9',keyColor:'#88c0d0',userColor:'#81a1c1',atColor:'#d8dee9',hostColor:'#8fbcbb',sepColor:'#4c566a',logoColor:'#88c0d0',
+    palette:['#3b4252','#bf616a','#a3be8c','#ebcb8b','#81a1c1','#b48ead','#88c0d0','#e5e9f0']},
+  'Tokyo Night': {bg:'#1a1b26',fg:'#c0caf5',keyColor:'#7aa2f7',userColor:'#bb9af7',atColor:'#c0caf5',hostColor:'#7dcfff',sepColor:'#565f89',logoColor:'#7aa2f7',
+    palette:['#414868','#f7768e','#9ece6a','#e0af68','#7aa2f7','#bb9af7','#7dcfff','#c0caf5']},
+  'Dracula': {bg:'#282a36',fg:'#f8f8f2',keyColor:'#ff79c6',userColor:'#bd93f9',atColor:'#f8f8f2',hostColor:'#8be9fd',sepColor:'#6272a4',logoColor:'#bd93f9',
+    palette:['#44475a','#ff5555','#50fa7b','#f1fa8c','#bd93f9','#ff79c6','#8be9fd','#f8f8f2']},
+};
+
+const DEFAULT_MODS = ['title','separator','os','host','kernel','uptime','packages','shell','display','de','wm','theme','terminal','cpu','gpu','memory','disk','localip','break','colors'];
+
+function defaultState(){
+  const p = PRESETS['Default'];
+  return {
+    lang: 'en',
+    logoType:'ascii', ascii:DEFAULT_ASCII, image:null, imgW:28, imgR:12, builtin:'cachyos', padTop:1, padRight:3,
+    separator:' ➜  ', sepChar:'─',
+    mods: DEFAULT_MODS.map(m=>({type:m,key:KEY_LABEL[m]||'',color:p.keyColor,on:true,text:''})),
+    ...structuredClone(p), cursorColor:'#d6deeb',
+    opacity:88, blur:true, fontSize:13, padding:18, wallType:'gradient', wall:null,
+    pShowUser:true, pUserColor:'#7ee787', pDirColor:'#5b8cff', pSymbol:'❯', pSymColor:'#c792ea', pGreet:true,
+  };
+}
+
+/* ===================== State ===================== */
+let S = load() || defaultState();
+function load(){ try{ const j = localStorage.getItem('td-state'); return j ? {...defaultState(), ...JSON.parse(j)} : null }catch(e){ return null } }
+function save(){ try{ localStorage.setItem('td-state', JSON.stringify(S)) }catch(e){} }
+
+// In Electron, preload.js provides window.td; falls back to install.sh in a standard browser
+const CAN_APPLY = !!window.td?.apply;
+
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+const esc = s => String(s).replace(/[&<>"]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+function hexA(hex, a){ const n=parseInt(hex.slice(1),16); return `rgba(${n>>16&255},${n>>8&255},${n&255},${a})` }
+function toast(msg){ const el=$('#toast'); el.textContent=msg; el.classList.add('on'); clearTimeout(toast.t); toast.t=setTimeout(()=>el.classList.remove('on'),1800) }
+
+/* ===================== Preview ===================== */
+function render(){
+  const term=$('#term'), scr=$('#screen');
+  term.style.background = hexA(S.bg, S.opacity/100);
+  term.style.backdropFilter = S.blur ? 'blur(18px) saturate(140%)' : 'none';
+  $('#titlebar').style.background = hexA(S.bg, Math.min(1, S.opacity/100 + .08));
+  $('#titlebar').style.color = S.fg;
+  scr.style.color = S.fg; scr.style.fontSize = S.fontSize+'px'; scr.style.padding = S.padding+'px';
+
+  const wall=$('#wall');
+  wall.style.backgroundImage = S.wallType==='image' && S.wall ? `url(${S.wall})`
+    : S.wallType==='gradient' ? 'radial-gradient(circle at 18% 22%,#6b7280 0,transparent 42%),radial-gradient(circle at 82% 28%,#52525b 0,transparent 46%),radial-gradient(circle at 50% 95%,#78716c 0,transparent 45%),linear-gradient(135deg,#27272a,#18181b)' : 'none';
+  wall.style.backgroundColor = S.wallType==='plain' ? '#3a3a3d' : '#18181b';
+
+  let logo='';
+  const padTop = `padding-top:${S.padTop*1.45}em;padding-right:${S.padRight}ch`;
+  if(S.logoType==='ascii') logo = `<div class="logo" style="color:${S.logoColor};${padTop}">${esc(S.ascii)}</div>`;
+  else if(S.logoType==='image') logo = S.image
+      ? `<div class="logo" style="${padTop}"><img src="${S.image}" style="width:${S.imgW}ch;border-radius:${S.imgR}px"></div>`
+      : `<div class="logo" style="${padTop};color:${S.fg};opacity:.5">${t('noImage')}</div>`;
+  else if(S.logoType==='builtin') logo = `<div class="logo" style="color:${S.logoColor};${padTop}">${esc(builtinArt(S.builtin))}</div>`;
+
+  const lines = S.mods.filter(m=>m.on).map(m=>{
+    switch(m.type){
+      case 'title': return `<div class="ln"><b style="color:${S.userColor}">il4pt</b><span style="color:${S.atColor}">@</span><b style="color:${S.hostColor}">cachyos-x8664</b></div>`;
+      case 'separator': return `<div class="ln" style="color:${S.sepColor}">${esc(S.sepChar.repeat(21))}</div>`;
+      case 'break': return `<div class="ln"> </div>`;
+      case 'colors': return `<div class="ln blocks">${S.palette.map(c=>`<span style="background:${c}"></span>`).join('')}</div>`;
+      case 'custom': return `<div class="ln" style="color:${m.color}">${esc(m.text||t('m_custom'))}</div>`;
+      default: return `<div class="ln"><b style="color:${m.color}">${esc(m.key)}</b><span style="color:${S.sepColor}">${esc(S.separator)}</span>${esc(SAMPLE[m.type]??'')}</div>`;
+    }
+  }).join('');
+
+  const prompt = promptPreview();
+  scr.innerHTML = `${prompt}<span>fastfetch</span>\n<div class="ff">${logo}<div class="info" style="padding-top:${S.logoType==='none'?0:S.padTop*1.45}em">${lines}</div></div><div class="prompt-line">${prompt}<span class="cursor" style="background:${S.cursorColor}"></span></div>`;
+  save();
+}
+function promptPreview(){
+  let p='';
+  if(S.pShowUser) p += `<span style="color:${S.pUserColor}">il4pt@cachyos</span> `;
+  p += `<span style="color:${S.pDirColor}">~</span> <span style="color:${S.pSymColor}">${esc(S.pSymbol)}</span> `;
+  return p;
+}
+function builtinArt(name){
+  const art = {
+    arch:`      /\\\n     /  \\\n    /\\   \\\n   /      \\\n  /   ,,   \\\n /   |  |  -\\\n/_-''    ''-_\\`,
+    debian:`  _____\n /  __ \\\n|  /    |\n|  \\___-\n-_\n  --_`,
+    ubuntu:`         _\n     ---(_)\n _/  ---  \\\n(_) |   |\n  \\  --- _/\n     ---(_)`,
+    fedora:`      _____\n     /   __)\\\n     |  /  \\ \\\n  ___|  |__/ /\n / (_    _)_/\n/ /  |  |\n\\ \\__/  |\n \\(_____/`,
+  };
+  return art[name] || `   ___\n  /   \\\n | ${name.slice(0,3).padEnd(3)} |\n  \\___/\n\n ${name}`;
+}
+
+/* ===================== Controls ===================== */
+function bindRange(id, key, fmt=v=>v){
+  const el=$('#'+id), out=$('#'+id+'v');
+  el.value=S[key]; if(out) out.textContent=fmt(S[key]);
+  el.oninput=()=>{ S[key]=+el.value; if(out) out.textContent=fmt(S[key]); render() };
+}
+function bindColor(id, key){ const el=$('#'+id); el.value=S[key]; el.oninput=()=>{ S[key]=el.value; render() } }
+function bindCheck(id, key){ const el=$('#'+id); el.checked=S[key]; el.onchange=()=>{ S[key]=el.checked; render() } }
+function bindText(id, key){ const el=$('#'+id); el.value=S[key]; el.oninput=()=>{ S[key]=el.value; render() } }
+function bindSeg(id, key, after){
+  $$('#'+id+' button').forEach(b=>{
+    b.classList.toggle('on', b.dataset.v===S[key]);
+    b.onclick=()=>{ S[key]=b.dataset.v; $$('#'+id+' button').forEach(x=>x.classList.toggle('on',x===b)); after&&after(); render() };
+  });
+}
+function syncLogoCards(){
+  $$('[data-logo]').forEach(c=>c.style.display = c.dataset.logo===S.logoType ? '' : 'none');
+  $$('[data-logo-any]').forEach(c=>c.style.display = S.logoType==='none' ? 'none' : '');
+}
+function renderPalette(){
+  $('#palette').innerHTML = S.palette.map((c,i)=>`<input type="color" value="${c}" data-i="${i}" style="width:100%">`).join('');
+  $$('#palette input').forEach(el=>el.oninput=()=>{ S.palette[+el.dataset.i]=el.value; render() });
+}
+function renderMods(){
+  const box=$('#mods');
+  box.innerHTML = S.mods.map((m,i)=>{
+    const labelEditable = !['title','separator','break','colors'].includes(m.type);
+    const field = m.type==='custom'
+      ? `<input type="text" data-f="text" value="${esc(m.text)}" placeholder="${t('customPh')}">`
+      : labelEditable ? `<input type="text" data-f="key" value="${esc(m.key)}">` : `<span style="font-size:13px">${modLabel(m.type)}</span>`;
+    return `<div class="mod ${m.on?'':'off'}" draggable="true" data-i="${i}">
+      <span class="grip">⋮⋮</span>
+      <input type="checkbox" data-f="on" ${m.on?'checked':''}>
+      ${field}
+      ${labelEditable ? `<input type="color" data-f="color" value="${m.color}">` : '<span></span>'}
+      <button class="x" title="${t('delete')}">×</button>
+      ${labelEditable && m.type!=='custom' ? `<span class="tag">${m.type}</span>`:''}
+    </div>`;
+  }).join('');
+  $$('#mods .mod').forEach(row=>{
+    const i=+row.dataset.i;
+    row.querySelectorAll('[data-f]').forEach(el=>{
+      const f=el.dataset.f;
+      el.oninput = ()=>{ S.mods[i][f] = f==='on' ? el.checked : el.value; if(f==='on') row.classList.toggle('off',!el.checked); render() };
+    });
+    row.querySelector('.x').onclick=()=>{ S.mods.splice(i,1); renderMods(); render() };
+    row.ondragstart=e=>{ row.classList.add('dragging'); e.dataTransfer.setData('text/plain',i) };
+    row.ondragend=()=>row.classList.remove('dragging');
+    row.ondragover=e=>e.preventDefault();
+    row.ondrop=e=>{ e.preventDefault(); const from=+e.dataTransfer.getData('text/plain'); if(from===i) return;
+      const [m]=S.mods.splice(from,1); S.mods.splice(i,0,m); renderMods(); render() };
+  });
+}
+function readFile(file, asText){ return new Promise(r=>{ const fr=new FileReader(); fr.onload=()=>r(fr.result); asText?fr.readAsText(file):fr.readAsDataURL(file) }) }
+function showImgPrev(){ $('#imgPrev').innerHTML = S.image ? `<img src="${S.image}">` : '' }
+
+function initControls(){
+  bindSeg('langSeg','lang',applyLang);
+  bindSeg('logoType','logoType',syncLogoCards); syncLogoCards();
+  const at=$('#asciiText'); at.value=S.ascii; at.oninput=()=>{ S.ascii=at.value; render() };
+  $('#asciiLoad').onclick=()=>$('#asciiFile').click();
+  $('#asciiFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; S.ascii=await readFile(f,true); at.value=S.ascii; render() };
+  const drop=$('#imgDrop'), imgIn=$('#imgFile');
+  drop.onclick=()=>imgIn.click();
+  const takeImg=async f=>{ if(!f||!f.type.startsWith('image/')) return; S.image=await readFile(f); showImgPrev(); render() };
+  imgIn.onchange=e=>takeImg(e.target.files[0]);
+  drop.ondragover=e=>{ e.preventDefault(); drop.classList.add('over') };
+  drop.ondragleave=()=>drop.classList.remove('over');
+  drop.ondrop=e=>{ e.preventDefault(); drop.classList.remove('over'); takeImg(e.dataTransfer.files[0]) };
+  showImgPrev();
+  bindRange('imgW','imgW'); bindRange('imgR','imgR',v=>v+'px');
+  $('#builtinLogo').innerHTML = BUILTINS.map(b=>`<option ${b===S.builtin?'selected':''}>${b}</option>`).join('');
+  $('#builtinLogo').onchange=e=>{ S.builtin=e.target.value; render() };
+  bindRange('padTop','padTop'); bindRange('padRight','padRight');
+
+  bindText('separator','separator'); bindText('sepChar','sepChar');
+  $('#addBtn').onclick=()=>{ const m=$('#addSel').value; S.mods.push({type:m,key:KEY_LABEL[m]||'',color:S.keyColor,on:true,text:''}); renderMods(); render();
+    $('#mods').lastElementChild?.scrollIntoView({block:'nearest'}) };
+
+  $('#presets').innerHTML = Object.keys(PRESETS).map(n=>`<button class="btn sm" data-p="${n}">${n}</button>`).join('');
+  $$('#presets button').forEach(b=>b.onclick=()=>{ const p=structuredClone(PRESETS[b.dataset.p]); Object.assign(S,p);
+    S.mods.forEach(m=>m.color=p.keyColor); S.cursorColor=p.fg; initColors(); renderMods(); render(); toast(b.dataset.p+t('presetApplied')) });
+  initColors();
+  $('#applyKeyAll').onclick=()=>{ S.mods.forEach(m=>m.color=S.keyColor); renderMods(); render() };
+
+  bindRange('opacity','opacity',v=>v+'%'); bindCheck('blur','blur');
+  bindRange('fontSize','fontSize',v=>v+'px'); bindRange('padding','padding',v=>v+'px');
+  bindSeg('wallType','wallType');
+  $('#wallLoad').onclick=()=>$('#wallFile').click();
+  $('#wallFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return; S.wall=await readFile(f); S.wallType='image'; bindSeg('wallType','wallType'); render() };
+
+  bindCheck('pShowUser','pShowUser'); bindColor('pUserColor','pUserColor'); bindColor('pDirColor','pDirColor');
+  bindText('pSymbol','pSymbol'); bindColor('pSymColor','pSymColor'); bindCheck('pGreet','pGreet');
+  applyLang();
+}
+function initColors(){
+  ['bg','fg','cursorColor','keyColor','userColor','atColor','hostColor','sepColor','logoColor'].forEach(k=>bindColor(k,k));
+  renderPalette();
+}
+
+/* ===================== Export ===================== */
+function fastfetchConfig(){
+  let logo;
+  const padding = {top:S.padTop, right:S.padRight};
+  if(S.logoType==='ascii') logo = {type:'file', source:'~/.config/fastfetch/logo.txt', color:{'1':S.logoColor}, padding};
+  else if(S.logoType==='image') logo = {type:'kitty', source:'~/.config/fastfetch/logo.png', width:S.imgW, padding};
+  else if(S.logoType==='builtin') logo = {type:'builtin', source:S.builtin, color:{'1':S.logoColor}, padding};
+  else logo = {type:'none'};
+
+  const modules = S.mods.filter(m=>m.on).map(m=>{
+    switch(m.type){
+      case 'title': return {type:'title', color:{user:S.userColor, at:S.atColor, host:S.hostColor}};
+      case 'separator': return {type:'separator', string:S.sepChar};
+      case 'break': return 'break';
+      case 'colors': return {type:'colors', symbol:'block'};
+      case 'custom': return {type:'custom', format:m.text, outputColor:m.color};
+      default: return {type:m.type, key:m.key, keyColor:m.color};
+    }
+  });
+  return {
+    $schema:'https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json',
+    logo,
+    display:{separator:S.separator, color:{separator:S.sepColor}},
+    modules
+  };
+}
+
+const rgb = h => { const n=parseInt(h.slice(1),16); return [n>>16&255,n>>8&255,n&255] };
+const BRIGHT = (h,amt=40)=>'#'+rgb(h).map(v=>Math.min(255,v+amt).toString(16).padStart(2,'0')).join('');
+
+function kittyConf(){
+  return `# Terminal Designer
+background ${S.bg}
+foreground ${S.fg}
+cursor ${S.cursorColor}
+background_opacity ${(S.opacity/100).toFixed(2)}
+${S.blur?'background_blur 32':''}
+font_size ${S.fontSize}
+window_padding_width ${Math.round(S.padding/1.5)}
+${S.palette.map((c,i)=>`color${i} ${c}\ncolor${i+8} ${BRIGHT(c)}`).join('\n')}
+`;
+}
+function alacrittyToml(){
+  const names=['black','red','green','yellow','blue','magenta','cyan','white'];
+  return `# ~/.config/alacritty/alacritty.toml
+[window]
+opacity = ${(S.opacity/100).toFixed(2)}
+blur = ${S.blur}
+padding = { x = ${Math.round(S.padding/1.5)}, y = ${Math.round(S.padding/1.5)} }
+
+[font]
+size = ${S.fontSize}
+
+[colors.primary]
+background = "${S.bg}"
+foreground = "${S.fg}"
+
+[colors.cursor]
+cursor = "${S.cursorColor}"
+
+[colors.normal]
+${S.palette.map((c,i)=>`${names[i]} = "${c}"`).join('\n')}
+
+[colors.bright]
+${S.palette.map((c,i)=>`${names[i]} = "${BRIGHT(c)}"`).join('\n')}
+`;
+}
+function konsoleScheme(){
+  const r = h => rgb(h).join(',');
+  let s = `[General]\nDescription=Terminal Designer\nOpacity=${(S.opacity/100).toFixed(2)}\nBlur=${S.blur}\n\n[Background]\nColor=${r(S.bg)}\n\n[BackgroundIntense]\nColor=${r(S.bg)}\n\n[Foreground]\nColor=${r(S.fg)}\n\n[ForegroundIntense]\nColor=${r(S.fg)}\n`;
+  S.palette.forEach((c,i)=>{ s += `\n[Color${i}]\nColor=${r(c)}\n\n[Color${i}Intense]\nColor=${r(BRIGHT(c))}\n` });
+  return s;
+}
+
+/* Generates the fish prompt script using S.pShowUser, S.pUserColor, S.pDirColor, S.pSymbol, S.pSymColor */
+function fishPrompt(){
+  // TODO(human)
+  return `function fish_prompt\n    echo -n (prompt_pwd) '> '\nend\n`;
+}
+function fishGreeting(){
+  return S.pGreet ? `function fish_greeting\n    fastfetch\nend\n` : `function fish_greeting\nend\n`;
+}
+
+/* All files to generate: { path: relative to HOME, b64: content } */
+const b64 = s => btoa(unescape(encodeURIComponent(s)));
+function buildFiles(){
+  const files = [
+    {path:'.config/fastfetch/config.jsonc', b64:b64(JSON.stringify(fastfetchConfig(), null, 2))},
+    {path:'.config/fish/functions/fish_prompt.fish', b64:b64(fishPrompt())},
+    {path:'.config/fish/functions/fish_greeting.fish', b64:b64(fishGreeting())},
+    {path:'.local/share/konsole/TerminalDesigner.colorscheme', b64:b64(konsoleScheme())},
+    {path:'.config/kitty/terminal-designer.conf', b64:b64(kittyConf())},
+  ];
+  if(S.logoType==='ascii') files.push({path:'.config/fastfetch/logo.txt', b64:b64(S.ascii)});
+  if(S.logoType==='image' && S.image) files.push({path:'.config/fastfetch/logo.png', b64:S.image.split(',')[1]});
+  return files;
+}
+
+function installScript(){
+  const body = buildFiles().map(f=>
+    `backup "$HOME/${f.path}"\nmkdir -p "$(dirname "$HOME/${f.path}")"\nprintf '%s' '${f.b64}' | base64 -d > "$HOME/${f.path}"\necho "  ✓ ~/${f.path}"`
+  ).join('\n');
+  return `#!/usr/bin/env bash
+# Terminal Designer — install.sh
+set -e
+backup(){ [ -f "$1" ] && cp "$1" "$1.bak" || true; }
+${body}
+touch "$HOME/.config/kitty/kitty.conf"
+grep -q "include terminal-designer.conf" "$HOME/.config/kitty/kitty.conf" || echo "include terminal-designer.conf" >> "$HOME/.config/kitty/kitty.conf"
+echo
+echo "${t('sh_done')}"
+echo "${t('sh_konsole')}"
+`;
+}
+
+async function applyNow(){
+  if(S.logoType==='image' && !S.image) return toast(t('needImage'));
+  const btn=$('#applyNow'), out=$('#applyResult');
+  btn.disabled=true; btn.textContent=t('applying'); out.className='result'; out.textContent='';
+  try{
+    const j = await window.td.apply({files:buildFiles(), kitty:true, konsole:$('#konsoleProfile').checked});
+    if(!j.ok) throw new Error(j.error);
+    out.className='result ok'; out.textContent = t('applied')+'\n'+j.written.map(p=>'  ✓ ~/'+p).join('\n');
+  }catch(err){
+    out.className='result err'; out.textContent = t('applyFail')+err.message;
+  }
+  btn.disabled=false; btn.textContent=t('applyNow');
+}
+
+function download(name, text, type='text/plain'){
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type})); a.download=name; a.click();
+  setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+let exportTab='fastfetch';
+function showExport(){
+  const out = { fastfetch:()=>JSON.stringify(fastfetchConfig(),null,2), prompt:fishPrompt, kitty:kittyConf, alacritty:alacrittyToml, konsole:konsoleScheme }[exportTab]();
+  $('#exportOut').textContent = out;
+  $$('#exportTabs button').forEach(b=>b.classList.toggle('on',b.dataset.v===exportTab));
+}
+
+$$('.tab').forEach(x=>x.onclick=()=>{ $$('.tab').forEach(y=>y.classList.toggle('on',y===x)); $$('.sec').forEach(s=>s.classList.toggle('on',s.dataset.sec===x.dataset.tab)) });
+$('#themeBtn').onclick=()=>{ const r=document.documentElement; r.dataset.theme = r.dataset.theme==='light'?'dark':'light' };
+$('#saveJson').onclick=()=>download('terminal-design.json', JSON.stringify(S,null,2));
+$('#loadJson').onclick=()=>$('#jsonFile').click();
+$('#jsonFile').onchange=async e=>{ const f=e.target.files[0]; if(!f) return;
+  try{ S={...defaultState(),...JSON.parse(await readFile(f,true))}; initControls(); render(); toast(t('loaded')) }catch(err){ toast(t('badFile')) } };
+$('#exportBtn').onclick=()=>{ showExport(); $('#applyResult').textContent=''; $('#modal').classList.add('on') };
+$('#closeModal').onclick=()=>$('#modal').classList.remove('on');
+$('#modal').onclick=e=>{ if(e.target.id==='modal') $('#modal').classList.remove('on') };
+$$('#exportTabs button').forEach(b=>b.onclick=()=>{ exportTab=b.dataset.v; showExport() });
+$('#copyOut').onclick=async()=>{ try{ await navigator.clipboard.writeText($('#exportOut').textContent); toast(t('copied')) }catch(e){ toast(t('copyFail')) } };
+$('#applyNow').onclick=applyNow;
+$('#dlInstall').onclick=()=>{ if(S.logoType==='image' && !S.image) return toast(t('needImage')); download('install.sh', installScript()); toast(t('downloaded')) };
+// Hide "Apply now" card and promote install.sh if running outside Electron
+$('#applyCard').style.display = CAN_APPLY ? '' : 'none';
+$('#dlInstall').classList.toggle('primary', !CAN_APPLY);
+
+initControls();
+render();
+</script>
+</body>
+</html>
